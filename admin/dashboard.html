@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Admin Dashboard — DataHub</title>
+<link rel="stylesheet" href="css/admin-style.css" />
+</head>
+<body>
+
+<div class="admin-shell">
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><span class="logo">📶</span> DataHub Admin</div>
+    <nav>
+      <a href="#" class="active" data-view="dashboard">📊 Dashboard</a>
+      <a href="#" data-view="orders">🧾 Orders</a>
+      <a href="#" data-view="bundles">📦 Products / Bundles</a>
+      <a href="#" data-disabled>👥 Customers</a>
+      <a href="#" data-disabled>🧑‍💼 Users</a>
+      <a href="#" data-disabled>⚙️ Settings</a>
+    </nav>
+    <div class="logout">
+      <button class="btn btn-outline btn-block btn-sm" id="logoutBtn">🚪 Logout</button>
+    </div>
+  </aside>
+
+  <main class="admin-main">
+    <div class="admin-topbar">
+      <button class="hamburger-btn" id="hamburgerBtn" aria-label="Open menu">☰</button>
+      <h1 id="viewTitle">Orders</h1>
+      <div class="live-pill"><span class="live-dot"></span> Live · admin</div>
+    </div>
+
+    <div class="admin-content">
+
+      <div class="conn-error" id="connError" style="display:none;"></div>
+
+      <div class="stats-row">
+        <div class="stat-card"><div class="label">Total Orders</div><div class="value" id="statTotal">0</div></div>
+        <div class="stat-card"><div class="label">Completed</div><div class="value" id="statCompleted">0</div></div>
+        <div class="stat-card"><div class="label">Pending</div><div class="value" id="statPending">0</div></div>
+        <div class="stat-card"><div class="label">Revenue (GH₵)</div><div class="value" id="statRevenue">0</div></div>
+      </div>
+
+      <div class="toolbar">
+        <input type="text" id="searchOrders" placeholder="Search by name, phone or network…" style="min-width:260px;" />
+        <select id="filterStatus">
+          <option value="">All statuses</option>
+          <option value="Pending">Pending</option>
+          <option value="Completed">Completed</option>
+          <option value="Failed">Failed</option>
+        </select>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Client Name</th>
+              <th>Network</th>
+              <th>Bundle</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="ordersBody">
+            <tr><td colspan="6" class="empty-state">Loading orders…</td></tr>
+          </tbody>
+        </table>
+        <div class="pagination" id="pagination"></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- View Order Details modal -->
+<div class="modal-backdrop" id="detailsModal">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <h3>Order Details</h3>
+      <button class="modal-close" data-close="detailsModal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-grid">
+        <div class="detail-block">
+          <h4>Customer Information</h4>
+          <div class="detail-row"><span>Name</span><span id="dName">-</span></div>
+          <div class="detail-row"><span>Phone Number</span><span id="dPhone">-</span></div>
+          <div class="detail-row"><span>Email</span><span id="dEmail">-</span></div>
+        </div>
+        <div class="detail-block">
+          <h4>Transaction Information</h4>
+          <div class="detail-row"><span>Reference</span><span id="dRef">-</span></div>
+          <div class="detail-row"><span>Payment Method</span><span id="dMethod">-</span></div>
+          <div class="detail-row"><span>Payment Status</span><span id="dStatus">-</span></div>
+          <div class="detail-row"><span>Date &amp; Time</span><span id="dDate">-</span></div>
+        </div>
+      </div>
+      <div class="detail-block" style="margin-top:18px;">
+        <h4>Bundle Information</h4>
+        <div class="detail-row"><span>Network</span><span id="dNetwork">-</span></div>
+        <div class="detail-row"><span>Bundle Volume</span><span id="dVolume">-</span></div>
+        <div class="detail-row"><span>Amount Paid</span><span id="dAmount">-</span></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" data-close="detailsModal">Close</button>
+      <button class="btn btn-primary" id="markSentFromDetails">Mark as Completed</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mark as Completed confirm modal -->
+<div class="modal-backdrop" id="markSentModal">
+  <div class="modal">
+    <div class="modal-body" style="text-align:center;">
+      <div class="confirm-icon">✅</div>
+      <h3>Mark as Completed?</h3>
+      <p style="color:var(--gray-500);font-size:.9rem;">Are you sure you want to mark this order as Completed? The customer will see this update on their "My Orders" page.</p>
+      <div style="display:flex;gap:10px;margin-top:18px;">
+        <button class="btn btn-outline btn-block" data-close="markSentModal">Cancel</button>
+        <button class="btn btn-primary btn-block" id="confirmMarkSent">Yes, Mark as Completed</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Manage Bundles modal -->
+<div class="modal-backdrop" id="bundlesModal">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <h3>Manage Bundles</h3>
+      <button class="modal-close" data-close="bundlesModal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="bundle-network-tabs" id="bundleNetworkTabs"></div>
+      <div id="bundleRows"></div>
+      <button class="btn btn-outline btn-sm" id="addBundleRow" style="margin-top:6px;">+ Add Bundle</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" data-close="bundlesModal">Cancel</button>
+      <button class="btn btn-primary" id="saveBundles">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/firebase-config.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

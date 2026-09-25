@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Admin Login — DataHub</title>
+<link rel="stylesheet" href="css/admin-style.css" />
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-side">
+    <div class="icon">🛡️</div>
+    <h2>Admin Portal</h2>
+    <p>Manage orders, send data and keep your customers connected.</p>
+  </div>
+  <div class="login-form-box">
+    <div class="login-card">
+      <h1>Admin Login</h1>
+      <p class="sub">Sign in to manage DataHub orders.</p>
+
+      <div class="login-error" id="loginError">Incorrect username or password.</div>
+
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="username" placeholder="Enter your username" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password" />
+      </div>
+      <button class="btn btn-primary btn-block" id="loginBtn">Login</button>
+      <a href="#" class="forgot">Forgot Password?</a>
+      <a href="../index.html" style="display:block;text-align:center;margin-top:16px;font-size:.85rem;color:var(--gray-500);">← Back to DataHub</a>
+    </div>
+  </div>
+</div>
+
+<script src="js/admin.js"></script>
+</body>
+</html>

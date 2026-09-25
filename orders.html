@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>My Orders — DataHub</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <div class="brand">
+      <span class="logo">📶</span>
+      <div>DataHub<small>Fast · Safe · Reliable</small></div>
+    </div>
+    <nav class="main-nav">
+      <a href="index.html">Home</a>
+      <a href="orders.html" class="active">My Orders</a>
+      <a href="index.html#contact">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<div class="mini-hero">
+  <div class="container">
+    <h2>My Orders</h2>
+    <p>Orders you've placed on this device.</p>
+  </div>
+</div>
+
+<div class="container section">
+
+  <div class="table-wrap" style="padding:16px 20px;margin-bottom:22px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+    <input type="text" id="searchInput" placeholder="Filter by name, phone or network…" style="flex:1;min-width:220px;padding:10px 13px;border:1px solid var(--gray-300);border-radius:8px;font-size:.9rem;" />
+    <span id="syncNote" style="font-size:.78rem;color:var(--gray-500);"></span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date &amp; Time</th>
+          <th>Network</th>
+          <th>Bundle</th>
+          <th>Amount</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="ordersBody">
+        <tr><td colspan="5" class="empty-state">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p style="font-size:.8rem;color:var(--gray-500);margin-top:14px;">
+    Orders are saved on this device. If you switch browsers or phones, orders placed elsewhere won't appear here.
+  </p>
+</div>
+
+<footer class="site-footer">
+  <div class="container footer-bottom">© 2026 DataHub. All rights reserved. · <a href="admin/login.html" style="color:#aab3c8;">Admin Portal</a></div>
+</footer>
+
+<script src="js/firebase-config.js"></script>
+<script src="js/orders.js"></script>
+</body>
+</html>
