@@ -69,6 +69,13 @@ const FirebaseDB = {
     return res.json();
   },
 
+  // Delete everything at a path
+  async remove(path) {
+    const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`, { method: "DELETE" });
+    if (!res.ok) throw new Error(await this._explainError(res));
+    return null;
+  },
+
   // Overwrite everything at a path
   async set(path, data) {
     const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`, {

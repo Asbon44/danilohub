@@ -4,7 +4,7 @@
 
 // Paystack PUBLIC key only. The SECRET key must never be placed
 // in any file that runs in the browser — see README for why.
-const PAYSTACK_PUBLIC_KEY = "pk_test_d21507286e63c3bd4d5efbbded7a6047f7c5b228";
+const PAYSTACK_PUBLIC_KEY = "pk_live_885deb208187734cc30b2e9fed774d40b6eda01c";
 
 let bundlesData = {};
 let currentNetwork = "mtn";

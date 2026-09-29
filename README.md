@@ -14,13 +14,13 @@ that opens `admin/login.html`. It's a plain text link at the bottom of the
 page — deliberately low-key, since customers don't need it, but it's one
 tap away for you.
 
-**Admin login:**
-```
-Username: Danilo
-Password: Datahub
-```
-(This is a simple client-side check in `admin/js/admin.js` — see the
-security note below before you launch for real.)
+**Admin login:** the starting login is `Danilo` / `Datahub`. Change it any
+time from **Settings** in the admin sidebar (the new password is stored hashed
+in Firebase and applies on every device). This is still a client-side check —
+see the security note below.
+
+**Support:** customers see a WhatsApp button (+233 24 376 5784) on every page.
+**Admin:** each order has a Copy button next to the customer's phone number.
 
 Upload the whole folder to wherever you like (Netlify, Vercel, GitHub
 Pages, cPanel, Firebase Hosting, etc.) — it just needs to reach your
@@ -30,21 +30,20 @@ key required).
 ## ⚠️ Important — read before you launch
 
 **1. Never put your Paystack SECRET key in these files.**
-Only the **public** key (`pk_test_...`) is used in `client/js/app.js`, and
+Only the **public** key (`pk_live_...`) is used in `js/app.js`, and
 that's correct — Paystack's inline checkout is designed to run in the
-browser with the public key. The **secret** key
-(`sk_test_ae38810e7e493db67befa1682cd00c68853a39d8`) you shared must **never**
+browser with the public key. Your **secret** key (`sk_live_...`) must **never**
 be placed in any HTML/JS file, because anyone who views your site's source
-could read it and use it to access your Paystack account. It has **not**
-been included anywhere in these files.
+could read it and use it to access your Paystack account. It is **not**
+included anywhere in these files.
 
 The secret key is only needed if you want to *verify* a payment from a
 server (calling `GET https://api.paystack.co/transaction/verify/:reference`).
 That requires a real backend (e.g. a small Node/Express server, or a
 Firebase Cloud Function) — something outside plain HTML/CSS/JS. Right now
 this build trusts the `callback` from Paystack's inline widget on the
-customer's device, which is fine for a test-mode demo but **should be
-upgraded to server-side verification before you take real payments**, since
+customer's device, which is **not safe for live payments** — it **should be
+upgraded to server-side verification**, since
 a malicious user could in theory fake a "successful" callback in their
 browser without actually paying.
 
@@ -97,7 +96,7 @@ device and the admin portal. This means a customer's paid order is never
 lost even if Firebase is briefly unreachable, and the admin dashboard
 still works from its own local copy if Firebase drops.
 
-1. A customer pays through Paystack (mobile money or card, test mode).
+1. A customer pays through Paystack (mobile money or card, live mode).
 2. On success, the order is saved **immediately in that browser's local
    storage** — this always succeeds, so the customer sees "Payment
    Successful" and the order in `orders.html` right away, with zero
@@ -176,8 +175,9 @@ polls. Nothing needs to be manually re-entered.
 
 ## Testing payments
 
-Use Paystack's test cards / test mobile money numbers (see Paystack's docs)
-— your Paystack account is in test mode, so no real money moves.
+The site now uses your **live** Paystack key, so real money moves. To test
+with fake cards, temporarily switch `PAYSTACK_PUBLIC_KEY` in `js/app.js` back to
+your `pk_test_...` key.
 
 ## Folder map
 

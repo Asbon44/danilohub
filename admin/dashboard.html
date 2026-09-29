@@ -18,7 +18,7 @@
       <a href="#" data-view="bundles">📦 Products / Bundles</a>
       <a href="#" data-disabled>👥 Customers</a>
       <a href="#" data-disabled>🧑‍💼 Users</a>
-      <a href="#" data-disabled>⚙️ Settings</a>
+      <a href="#" data-view="settings">⚙️ Settings</a>
     </nav>
     <div class="logout">
       <button class="btn btn-outline btn-block btn-sm" id="logoutBtn">🚪 Logout</button>
@@ -58,6 +58,7 @@
           <thead>
             <tr>
               <th>Client Name</th>
+              <th>Phone</th>
               <th>Network</th>
               <th>Bundle</th>
               <th>Amount</th>
@@ -88,7 +89,7 @@
         <div class="detail-block">
           <h4>Customer Information</h4>
           <div class="detail-row"><span>Name</span><span id="dName">-</span></div>
-          <div class="detail-row"><span>Phone Number</span><span id="dPhone">-</span></div>
+          <div class="detail-row"><span>Phone Number</span><span><span id="dPhone">-</span> <button class="copy-btn" id="copyPhoneFromDetails" title="Copy number">📋 Copy</button></span></div>
           <div class="detail-row"><span>Email</span><span id="dEmail">-</span></div>
         </div>
         <div class="detail-block">
@@ -107,6 +108,7 @@
       </div>
     </div>
     <div class="modal-footer">
+      <button class="btn btn-outline btn-danger" id="deleteFromDetails">Delete Order</button>
       <button class="btn btn-outline" data-close="detailsModal">Close</button>
       <button class="btn btn-primary" id="markSentFromDetails">Mark as Completed</button>
     </div>
@@ -124,6 +126,43 @@
         <button class="btn btn-outline btn-block" data-close="markSentModal">Cancel</button>
         <button class="btn btn-primary btn-block" id="confirmMarkSent">Yes, Mark as Completed</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete order confirm modal -->
+<div class="modal-backdrop" id="deleteModal">
+  <div class="modal">
+    <div class="modal-body" style="text-align:center;">
+      <div class="confirm-icon">🗑️</div>
+      <h3>Delete this order?</h3>
+      <p id="deleteOrderSummary" style="font-weight:600;font-size:.9rem;"></p>
+      <p style="color:var(--gray-500);font-size:.9rem;">This permanently removes the order from the database. It can't be undone, and the customer will no longer see it on their "My Orders" page.</p>
+      <div style="display:flex;gap:10px;margin-top:18px;">
+        <button class="btn btn-outline btn-block" data-close="deleteModal">Cancel</button>
+        <button class="btn btn-danger-solid btn-block" id="confirmDelete">Yes, Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Admin Settings</h3>
+      <button class="modal-close" data-close="settingsModal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="login-error" id="settingsError" style="display:none;"></div>
+      <div class="field"><label>Username</label><input type="text" id="setUsername" autocomplete="username" /></div>
+      <div class="field"><label>Current password</label><input type="password" id="setCurrentPw" autocomplete="current-password" /></div>
+      <div class="field"><label>New password <small>(leave blank to keep current)</small></label><input type="password" id="setNewPw" autocomplete="new-password" /></div>
+      <div class="field"><label>Confirm new password</label><input type="password" id="setConfirmPw" autocomplete="new-password" /></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" data-close="settingsModal">Cancel</button>
+      <button class="btn btn-primary" id="saveSettings">Save Changes</button>
     </div>
   </div>
 </div>

@@ -1,31 +1,75 @@
 /* ==========================================================
    DataHub — Admin panel logic
    ==========================================================
-   Login here is a simple client-side check against the
-   credentials below (no server). It is fine for a small
-   test/demo project but is NOT secure for production — anyone
-   who reads this file can see the password. Before going live,
-   replace this with real Firebase Authentication. See README.
+   Login is a client-side check (no server). The password can be
+   changed from Settings and is stored hashed, but because the
+   database is open, this is still NOT strong security. For real
+   protection use Firebase Authentication. See README.
    ========================================================== */
 
-const ADMIN_USERNAME = "Danilo";
-const ADMIN_PASSWORD = "Datahub";
+const DEFAULT_ADMIN_USERNAME = "Danilo";
+const DEFAULT_ADMIN_PASSWORD = "Datahub";
 const SESSION_KEY = "datahub_admin_session";
+const AUTH_PATH = "adminAuth";                    // where the login lives in Firebase
+const AUTH_CACHE_KEY = "datahub_admin_auth_cache"; // offline copy of the login
+
+/* ---------------- Credentials (hashed, changeable) ---------------- */
+// Until the admin changes them, the defaults above work. After a change,
+// the username + a salted SHA-256 hash of the password are stored in
+// Firebase (so the change applies on every device) and cached locally.
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+function randomSalt() {
+  const a = new Uint8Array(16);
+  crypto.getRandomValues(a);
+  return Array.from(a).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+async function makeAuthRecord(username, password) {
+  const salt = randomSalt();
+  return { username, salt, hash: await sha256Hex(salt + password) };
+}
+// Returns the stored record, or null when the admin never changed the
+// defaults. Throws only if Firebase is unreachable AND nothing is cached.
+async function loadAuthRecord() {
+  try {
+    const rec = await FirebaseDB.get(AUTH_PATH);
+    if (rec && rec.hash) localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(rec));
+    else localStorage.removeItem(AUTH_CACHE_KEY);
+    return rec && rec.hash ? rec : null;
+  } catch (e) {
+    const cached = localStorage.getItem(AUTH_CACHE_KEY);
+    if (cached) return JSON.parse(cached);
+    throw e;
+  }
+}
+async function checkCredentials(username, password) {
+  const rec = await loadAuthRecord();
+  if (!rec) return username === DEFAULT_ADMIN_USERNAME && password === DEFAULT_ADMIN_PASSWORD;
+  return username === rec.username && (await sha256Hex(rec.salt + password)) === rec.hash;
+}
 
 /* ---------------- Login page ---------------- */
 const loginBtn = document.getElementById("loginBtn");
 if (loginBtn) {
-  loginBtn.addEventListener("click", () => {
+  loginBtn.addEventListener("click", async () => {
     const u = document.getElementById("username").value.trim();
     const p = document.getElementById("password").value;
     const err = document.getElementById("loginError");
-
-    if (u === ADMIN_USERNAME && p === ADMIN_PASSWORD) {
-      sessionStorage.setItem(SESSION_KEY, "true");
-      window.location.href = "dashboard.html";
-    } else {
-      err.style.display = "block";
+    loginBtn.disabled = true;
+    try {
+      if (await checkCredentials(u, p)) {
+        sessionStorage.setItem(SESSION_KEY, "true");
+        window.location.href = "dashboard.html";
+        return;
+      }
+      err.textContent = "Incorrect username or password.";
+    } catch (e) {
+      err.textContent = "Can't reach the server to check your login. Check your internet and try again.";
     }
+    err.style.display = "block";
+    loginBtn.disabled = false;
   });
   document.getElementById("password").addEventListener("keydown", (e) => {
     if (e.key === "Enter") loginBtn.click();
@@ -76,6 +120,10 @@ if (ordersBody) {
   function loadCache() { return JSON.parse(localStorage.getItem(CACHE_KEY) || "{}"); }
   function saveCache(map) { localStorage.setItem(CACHE_KEY, JSON.stringify(map)); }
 
+  const PENDING_DELETES_KEY = "datahub_admin_pending_deletes";
+  function loadPendingDeletes() { return JSON.parse(localStorage.getItem(PENDING_DELETES_KEY) || "[]"); }
+  function savePendingDeletes(list) { localStorage.setItem(PENDING_DELETES_KEY, JSON.stringify(list)); }
+
   function queuePendingUpdate(id, patch) {
     const pending = JSON.parse(localStorage.getItem(PENDING_UPDATES_KEY) || "{}");
     pending[id] = { ...(pending[id] || {}), ...patch };
@@ -85,11 +133,24 @@ if (ordersBody) {
   // Push any status changes made while Firebase was unreachable back up,
   // so customer devices eventually see them too.
   async function flushPendingUpdates() {
+    // Retry any deletions that couldn't reach Firebase earlier.
+    const pendingDeletes = loadPendingDeletes();
+    if (pendingDeletes.length) {
+      const stillDeleting = [];
+      for (const id of pendingDeletes) {
+        try { await FirebaseDB.remove(`orders/${id}`); }
+        catch (e) { stillDeleting.push(id); }
+      }
+      savePendingDeletes(stillDeleting);
+    }
+
     const pending = JSON.parse(localStorage.getItem(PENDING_UPDATES_KEY) || "{}");
     const ids = Object.keys(pending);
     if (ids.length === 0) return;
     const stillPending = {};
+    const deleted = loadPendingDeletes();
     for (const id of ids) {
+      if (deleted.includes(id)) continue; // order was deleted, drop its queued update
       try {
         await FirebaseDB.update(`orders/${id}`, pending[id]);
       } catch (e) {
@@ -113,6 +174,19 @@ if (ordersBody) {
   }
   function hideConnError() {
     document.getElementById("connError").style.display = "none";
+  }
+
+  async function copyText(text, label) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (_) {
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); } catch (e) {}
+      ta.remove();
+    }
+    showToast(`${label || "Copied"}: ${text}`);
   }
 
   function showToast(msg) {
@@ -146,7 +220,10 @@ if (ordersBody) {
       if (data) {
         // Merge live data into the local cache (Firebase is the source
         // of truth once reachable; the cache is the fallback otherwise).
-        Object.entries(data).forEach(([id, o]) => { cache[id] = o; });
+        const deletedIds = loadPendingDeletes();
+        Object.entries(data).forEach(([id, o]) => {
+          if (!deletedIds.includes(id)) cache[id] = o;
+        });
         saveCache(cache);
       }
       hideConnError();
@@ -193,7 +270,7 @@ if (ordersBody) {
 
   function renderTable() {
     if (filteredOrders.length === 0) {
-      ordersBody.innerHTML = `<tr><td colspan="6" class="empty-state">No orders found.</td></tr>`;
+      ordersBody.innerHTML = `<tr><td colspan="7" class="empty-state">No orders found.</td></tr>`;
       document.getElementById("pagination").innerHTML = "";
       return;
     }
@@ -204,6 +281,7 @@ if (ordersBody) {
     ordersBody.innerHTML = pageItems.map((o) => `
       <tr>
         <td>${o.customerName || "-"}</td>
+        <td>${o.phone ? `<span class="phone-cell">${o.phone}<button class="copy-btn" title="Copy number" data-copy-phone="${o.phone}">📋 Copy</button></span>` : "-"}</td>
         <td>${o.network || "-"}</td>
         <td>${o.bundleVolume || "-"}</td>
         <td>GH₵${Number(o.amount || 0).toFixed(2)}</td>
@@ -211,6 +289,7 @@ if (ordersBody) {
         <td>
           <button class="icon-btn" data-view-id="${o.id}">View</button>
           ${(o.status !== "Completed" && o.status !== "Sent") ? `<button class="icon-btn" data-sent-id="${o.id}">Mark Completed</button>` : ""}
+          <button class="icon-btn icon-btn-danger" data-delete-id="${o.id}">Delete</button>
         </td>
       </tr>
     `).join("");
@@ -226,6 +305,12 @@ if (ordersBody) {
     );
     ordersBody.querySelectorAll("[data-sent-id]").forEach((btn) =>
       btn.addEventListener("click", () => openMarkSent(btn.dataset.sentId))
+    );
+    ordersBody.querySelectorAll("[data-copy-phone]").forEach((btn) =>
+      btn.addEventListener("click", () => copyText(btn.dataset.copyPhone, "Number copied"))
+    );
+    ordersBody.querySelectorAll("[data-delete-id]").forEach((btn) =>
+      btn.addEventListener("click", () => openDelete(btn.dataset.deleteId))
     );
     document.getElementById("pagination").querySelectorAll("[data-page]").forEach((btn) =>
       btn.addEventListener("click", () => { currentPage = Number(btn.dataset.page); renderTable(); })
@@ -259,6 +344,61 @@ if (ordersBody) {
   document.getElementById("markSentFromDetails").addEventListener("click", () => {
     closeModal("detailsModal");
     openMarkSent(selectedOrderId);
+  });
+
+  document.getElementById("copyPhoneFromDetails").addEventListener("click", () => {
+    const o = allOrders.find((x) => x.id === selectedOrderId);
+    if (o && o.phone) copyText(o.phone, "Number copied");
+  });
+
+  document.getElementById("deleteFromDetails").addEventListener("click", () => {
+    closeModal("detailsModal");
+    openDelete(selectedOrderId);
+  });
+
+  /* ---- Delete order modal ---- */
+  function openDelete(id) {
+    const o = allOrders.find((x) => x.id === id);
+    if (!o) return;
+    selectedOrderId = id;
+    document.getElementById("deleteOrderSummary").textContent =
+      `${o.customerName || "Unknown"} — ${o.network || "-"} ${o.bundleVolume || ""} (GH₵${Number(o.amount || 0).toFixed(2)})`;
+    document.getElementById("deleteModal").classList.add("open");
+  }
+
+  document.getElementById("confirmDelete").addEventListener("click", async () => {
+    if (!selectedOrderId) return;
+    const id = selectedOrderId;
+
+    // Remove locally right away so the order disappears from the table
+    const cache = loadCache();
+    delete cache[id];
+    saveCache(cache);
+
+    // Drop any queued status update for this order
+    const pending = JSON.parse(localStorage.getItem(PENDING_UPDATES_KEY) || "{}");
+    delete pending[id];
+    localStorage.setItem(PENDING_UPDATES_KEY, JSON.stringify(pending));
+
+    closeModal("deleteModal");
+    selectedOrderId = null;
+
+    // Remember the deletion until Firebase confirms it, so a temporary
+    // network failure can't bring the order back on the next refresh.
+    const queue = loadPendingDeletes();
+    if (!queue.includes(id)) { queue.push(id); savePendingDeletes(queue); }
+    allOrders = allOrders.filter((o) => o.id !== id);
+    applyFilters();
+    updateStats();
+
+    try {
+      await FirebaseDB.remove(`orders/${id}`);
+      savePendingDeletes(loadPendingDeletes().filter((x) => x !== id));
+      showToast("Order deleted.");
+    } catch (e) {
+      console.warn("Couldn't delete from Firebase yet, will retry automatically:", e);
+      showToast("Order removed here. Will finish deleting when the database is reachable.");
+    }
   });
 
   /* ---- Mark as sent modal ---- */
@@ -308,8 +448,48 @@ if (ordersBody) {
       document.querySelectorAll(".sidebar nav a").forEach((a) => a.classList.remove("active"));
       link.classList.add("active");
       if (link.dataset.view === "bundles") openBundlesManager();
+      if (link.dataset.view === "settings") openSettings();
       // "dashboard" and "orders" both show the same orders view in this build
     });
+  });
+
+  /* ---- Settings: change username / password ---- */
+  async function openSettings() {
+    const rec = await loadAuthRecord().catch(() => null);
+    document.getElementById("setUsername").value = rec ? rec.username : DEFAULT_ADMIN_USERNAME;
+    ["setCurrentPw", "setNewPw", "setConfirmPw"].forEach((id) => (document.getElementById(id).value = ""));
+    document.getElementById("settingsError").style.display = "none";
+    document.getElementById("settingsModal").classList.add("open");
+  }
+
+  document.getElementById("saveSettings").addEventListener("click", async () => {
+    const errEl = document.getElementById("settingsError");
+    const fail = (m) => { errEl.textContent = m; errEl.style.display = "block"; };
+    const newUser = document.getElementById("setUsername").value.trim();
+    const currentPw = document.getElementById("setCurrentPw").value;
+    const newPw = document.getElementById("setNewPw").value;
+    const confirmPw = document.getElementById("setConfirmPw").value;
+
+    if (!newUser) return fail("Username can't be empty.");
+    if (!currentPw) return fail("Enter your current password to confirm it's you.");
+    if (newPw && newPw.length < 6) return fail("New password must be at least 6 characters.");
+    if (newPw !== confirmPw) return fail("New password and confirmation don't match.");
+
+    try {
+      const rec = await loadAuthRecord();
+      const currentUser = rec ? rec.username : DEFAULT_ADMIN_USERNAME;
+      if (!(await checkCredentials(currentUser, currentPw))) return fail("Current password is incorrect.");
+
+      // Blank new password = keep the current one, just change the username.
+      const record = await makeAuthRecord(newUser, newPw || currentPw);
+      await FirebaseDB.set(AUTH_PATH, record);
+      localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(record));
+      closeModal("settingsModal");
+      showToast("Login details updated.");
+    } catch (e) {
+      console.error(e);
+      fail("Couldn't save. Check your internet connection and try again.");
+    }
   });
 
   /* ---- Manage bundles ---- */
